@@ -102,4 +102,3 @@ The system ingests invoices from email, extracts invoice data using an LLM, dete
 - **OpenAI**: AI-powered extraction and analysis
 - **Slack**: Notifications and weekly summaries
 - **n8n**: Workflow orchestration and automation
-# invoice_automation_n8n
