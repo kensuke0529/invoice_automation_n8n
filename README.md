@@ -1,33 +1,42 @@
 # Invoice Automation System (n8n + LLMs + Google Workspace)
 
-This system automates the entire invoice intake → extraction → approval → reporting workflow using AI, manual data entry and fasten finance operations. It ingests emails automatically, extracts structured data from invoices using an LLM, routes high-value items for approval, and generates weekly financial summaries.
+An end-to-end invoice intake and processing automation that replaces manual data entry with a reliable, AI-assisted workflow.
 
-<img src="docs/n8n.png" alt="System Diagram" width="600"/>
-<img src="docs/chatbot.png" alt="System Diagram" width="600"/>
+This system ingests invoice emails, extracts structured data from PDF invoices using an LLM, validates and deduplicates records, routes high-value invoices for approval, stores clean data in Google Sheets, and logs every run
+
 
 ## Overview
-An automated invoice-processing pipeline using n8n, OpenAI, Gmail, Google Sheets, and Slack.
-The system ingests invoices from email, extracts invoice data using an LLM, detects duplicates, routes$$ high-value invoices for approval, stores every line item in a structured database, and generates weekly summaries.
+This project implements a production-style invoice pipeline using:
+- n8n for orchestration
+- OpenAI (LLM) for document understanding
+- Gmail for invoice ingestion
+- Google Drive for file storage
+- Google Sheets as a lightweight operational database
+- Slack for alerts and approvals
+
+The workflow is designed to be idempotent, auditable, and human-in-the-loop.
+![alt text](image.png)
 
 ## Before and After
 
 <img src="docs/before-after.png" alt="Invoice Data in Google Sheets" width="600"/>
 
 ### Before: Manual Invoice Processing
-- **Time-consuming**: Finance team manually opens each email, downloads PDFs, and enters data into spreadsheets
-- **Error-prone**: Manual data entry leads to typos, missing line items, and inconsistent formatting
-- **Slow approval process**: High-value invoices require manual routing and tracking
-- **Limited visibility**: No centralized view of all invoices and line items
-- **Reactive reporting**: Weekly summaries require manual compilation and analysis
+- Time-consuming manual downloads and data entry
+- Error-prone spreadsheets with inconsistent formatting
+- No duplicate protection
+- Ad-hoc approval tracking
+- Limited visibility into invoice history
+- Manual weekly reporting
 
 ### After: Automated Invoice Processing
-- **Instant processing**: Invoices are automatically extracted from emails and processed within minutes
-- **Accurate extraction**: AI extracts all invoice data including vendor, dates, amounts, and detailed line items
-- **Smart validation**: Automatic duplicate detection prevents processing the same invoice twice
-- **Streamlined approval**: High-value invoices (>$10,000) are automatically flagged for approval with a simple form
-- **Centralized database**: All invoice data is stored in Google Sheets with full line-item detail
-- **Proactive insights**: Weekly summaries are automatically generated and delivered via Slack
 
+- Invoices processed automatically within minutes
+- AI extracts vendor, dates, totals, and line items
+- Deterministic duplicate detection prevents double entry
+- High-value invoices flagged for approval automatically
+- Centralized invoice + line-item database
+- Full execution log for audit and debugging
 
 <img src="docs/image.png" alt="Invoice Data in Google Sheets" width="600"/>
 
@@ -35,12 +44,12 @@ The system ingests invoices from email, extracts invoice data using an LLM, dete
 
 ## Core Features
 
-1. **Invoice Ingest**: Automatically extracts PDF attachments from Gmail emails
-2. **AI-powered Document Extraction**: Uses LLM to extract structured data (vendor, date, amount, line items) from invoices
-3. **Data Validation + Human-in-the-loop**: Duplicate detection and manual approval workflow for high-value invoices (>$10,000)
-4. **Load Data into Google Sheet**: Stores all invoice line items in structured Google Sheets format
-5. **Weekly Summary Generation**: Automatically generates and sends weekly financial summaries via Slack
-6. **Chatbot Interface**: AI-powered chatbot for querying invoice data and answering questions
+- **Invoice Ingestion** – Monitors Gmail, extracts PDF attachments, archives files in Google Drive  
+- **AI Extraction** – Uses an LLM to extract structured invoice data (vendor, dates, totals, line items) as strict JSON  
+- **Validation & Business Logic** – Normalizes data, computes missing totals, validates consistency, assigns status (`logged`, `needs_review`, `needs_approval`)  
+- **Duplicate Detection** – Prevents duplicate invoices using a deterministic dedupe key  
+- **Data Storage** – Stores invoices, line items, and execution logs in structured Google Sheets  
+- **Slack Alerts** – Notifies when invoices require review or approval with links to source files  
 
 <img src="docs/features.png" alt="System Diagram" width="600"/>
 
@@ -49,56 +58,36 @@ The system ingests invoices from email, extracts invoice data using an LLM, dete
 
 ### Step-by-Step Workflow
 
-#### 1. **Invoice Ingestion** 
-- System monitors your Gmail inbox every minute for new emails
-- Automatically detects and extracts PDF attachments
-- Uploads original PDFs to Google Drive for archival
+How the Workflow Works
+1. Invoice Ingestion
+  - Gmail trigger detects a new invoice email
+  - PDF attachments are extracted and archived in Google Drive
 
-#### 2. **AI-Powered Extraction** 
-- PDF content is extracted and analyzed by an AI agent (GPT-4o-mini)
-- The AI identifies and extracts:
-  - Vendor name
-  - Invoice date and number
-  - Total amount
-  - All line items (description, quantity, unit price, amount)
-  - Processing timestamp (in Utah timezone)
+2. AI Extraction
+  - PDF text is analyzed by the LLM
+  - Structured invoice JSON is returned
 
-#### 3. **Duplicate Detection** 
-- System checks if an invoice with the same invoice number already exists
-- If duplicate is found:
-  - Notification is sent to Slack
+3. Normalization & Validation
+  - Data is cleaned and validated
+  - Totals are checked for consistency
+  - System status is assigned
 
-#### 4. **Data Validation & Approval** 
-- **Standard invoices** (<$10,000): Automatically processed and stored
-- **High-value invoices** (>$10,000): 
-  - Triggers approval workflow
-  - Approval form is sent with invoice details
-  - Human reviewer confirms validity
-  - Once approved, invoice is stored
+4. Duplicate Check
+  - Existing invoices are checked using the dedupe key
+  - Duplicates are logged and skipped
 
-#### 5. **Data Storage** 
-- All invoice data is stored in Google Sheets
-- Each line item gets its own row with complete details:
-  - Timestamp, vendor, invoice date/number, total amount
-  - Item description, quantity, unit price, line amount
-  - Link to original PDF 
+5. Storage
+  - Invoice metadata is written to the invoices sheet
+  - Each line item is written to invoice_items
+  - Execution details are recorded in runs_log
 
-#### 6. **Weekly Summary Generation** 
-- Every week, system automatically:
-  - Retrieves all invoices from the current week
-  - Generates a comprehensive financial summary
-  - Sends summary to Slack channel
+6. Alerts
+  - Slack alerts are sent for needs_review or needs_approval invoices
 
-#### 7. **Chatbot Interface** 
-- Interactive AI chatbot allows users to:
-  - Query invoice data by vendor, date, amount, or item
-  - Ask questions about invoice trends and patterns
+### Future Enhancements
 
-### Integration Points
-
-- **Gmail**: Email monitoring and attachment extraction
-- **Google Drive**: PDF archival and storage
-- **Google Sheets**: Structured data storage and retrieval
-- **OpenAI**: AI-powered extraction and analysis
-- **Slack**: Notifications and weekly summaries
-- **n8n**: Workflow orchestration and automation
+- Slack approve / reject buttons
+- Approval timestamps and user tracking
+- Accounting system integrations (QuickBooks, NetSuite)
+- Dashboard reporting
+- Vendor-level spend analytics
